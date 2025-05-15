@@ -185,7 +185,6 @@ export async function POST(request: NextRequest) {
       const purchaseData = {
         lemonsqueezy_order_id: orderId,
         user_id: userId, // Now this should always be populated
-        user_email: userEmail,
         product_name: productName,
         amount_total: totalAmount, // Storing as cents
         currency: currency,
