@@ -183,7 +183,7 @@ export async function POST(request: NextRequest) {
 
       // Insert a new record into the public.purchases table
       const purchaseData = {
-        order_id: orderId,
+        lemonsqueezy_order_id: orderId,
         user_id: userId, // Now this should always be populated
         user_email: userEmail,
         product_name: productName,
