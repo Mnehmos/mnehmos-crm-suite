@@ -187,7 +187,7 @@ export async function POST(request: NextRequest) {
         user_id: userId, // Now this should always be populated
         user_email: userEmail,
         product_name: productName,
-        total_amount: totalAmount, // Storing as cents
+        amount_total: totalAmount, // Storing as cents
         currency: currency,
         status: status,
         metadata: payload, // Store the full payload for auditing
