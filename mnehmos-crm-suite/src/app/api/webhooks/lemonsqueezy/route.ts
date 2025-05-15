@@ -112,28 +112,70 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({ message: 'Webhook received, but user_email missing.' }, { status: 200 });
       }
 
-      // Find the corresponding user_id in our public.users table
-      const { data: userData, error: userError } = await supabase
-        .from('users')
-        .select('id')
-        .eq('email', userEmail)
-        .single();
+      // Find the corresponding user_id in our public.users table or create a new user
+      let userId: string | null = null;
+      const userName = attributes.user_name; // Extract user_name
 
-      if (userError && userError.code !== 'PGRST116') { // PGRST116: "Searched for a single row, but 0 rows were found"
-        console.error(`Error fetching user by email ${userEmail}:`, userError);
-        return NextResponse.json({ error: 'Database error fetching user.' }, { status: 500 });
+      try {
+        const { data: existingUserData, error: fetchUserError } = await supabase
+          .from('users')
+          .select('id')
+          .eq('email', userEmail)
+          .single();
+
+        if (fetchUserError && fetchUserError.code !== 'PGRST116') {
+          console.error(`Error fetching user by email ${userEmail}:`, fetchUserError);
+          return NextResponse.json({ error: 'Database error fetching user.' }, { status: 500 });
+        }
+
+        if (existingUserData) {
+          userId = existingUserData.id;
+        } else {
+          // User not found, create a new one
+          console.log(`User with email ${userEmail} not found. Creating new user.`);
+          const newUser = {
+            email: userEmail,
+            full_name: userName, // Use user_name from payload
+            clerk_id: null, // Clerk ID will be null as this user is created via webhook
+            created_at: new Date().toISOString(),
+            updated_at: new Date().toISOString(),
+          };
+          const { data: newUserData, error: createUserError } = await supabase
+            .from('users')
+            .insert(newUser)
+            .select('id')
+            .single();
+
+          if (createUserError) {
+            console.error(`Error creating user with email ${userEmail}:`, createUserError);
+            return NextResponse.json({ error: 'Database error creating user.' }, { status: 500 });
+          }
+
+          if (newUserData) {
+            userId = newUserData.id;
+            console.log(`Successfully created user with email ${userEmail}, ID: ${userId}`);
+          } else {
+            // This case should ideally not happen if insert was successful and returned data
+            console.error(`Failed to retrieve ID for newly created user ${userEmail}.`);
+            return NextResponse.json({ error: 'Failed to retrieve new user ID.' }, { status: 500 });
+          }
+        }
+      } catch (dbError) {
+        console.error(`Database operation error for user ${userEmail}:`, dbError);
+        return NextResponse.json({ error: 'Database operation failed.' }, { status: 500 });
       }
 
-      const userId = userData?.id || null;
 
       if (!userId) {
-        console.warn(`User not found for email: ${userEmail} from LemonSqueezy webhook (Order ID: ${orderId}). Purchase will be logged without user_id.`);
+        // This should ideally not be reached if user creation/fetching is handled correctly
+        console.error(`Critical: Could not obtain user ID for ${userEmail} for order ${orderId}.`);
+        return NextResponse.json({ error: 'Failed to obtain user ID for purchase.' }, { status: 500 });
       }
 
       // Insert a new record into the public.purchases table
       const purchaseData = {
         order_id: orderId,
-        user_id: userId, // Can be null if user not found
+        user_id: userId, // Now this should always be populated
         user_email: userEmail,
         product_name: productName,
         total_amount: totalAmount, // Storing as cents
