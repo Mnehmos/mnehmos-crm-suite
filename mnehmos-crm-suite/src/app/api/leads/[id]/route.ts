@@ -18,15 +18,11 @@ interface LeadUpdatePayload {
 }
 
 
-interface PatchContext {
-  params: { id: string };
-}
-
 export async function PATCH(
   request: NextRequest,
-  context: PatchContext
+  { params }: { params: { id: string } }
 ) {
-  const leadId = context.params.id;
+  const leadId = params.id;
   const supabase = createRouteHandlerClient({ cookies });
   // const { id: leadId } = params; // This line is now handled by context.params.id
 
