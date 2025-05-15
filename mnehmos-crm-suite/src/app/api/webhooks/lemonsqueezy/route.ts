@@ -190,7 +190,7 @@ export async function POST(request: NextRequest) {
         total_amount: totalAmount, // Storing as cents
         currency: currency,
         status: status,
-        raw_payload: payload, // Store the full payload for auditing
+        metadata: payload, // Store the full payload for auditing
       };
       console.log(`Attempting to insert into purchases table. Data: ${JSON.stringify(purchaseData)}. Request ID: [${timestamp}/${randomId}]`);
 
