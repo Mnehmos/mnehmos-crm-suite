@@ -1,3 +1,5 @@
 # Sensitive credentials file
 creds.md
 .env.local.template
+# Local Netlify folder
+.netlify
