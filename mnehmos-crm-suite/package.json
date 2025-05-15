@@ -9,6 +9,7 @@
     "lint": "next lint"
   },
   "dependencies": {
+    "@ckeditor/ckeditor5-engine": "^45.1.0",
     "@clerk/nextjs": "^6.19.3",
     "@supabase/supabase-js": "^2.49.4",
     "next": "15.3.2",
