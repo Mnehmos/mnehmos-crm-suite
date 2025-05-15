@@ -1,5 +1,6 @@
 {
   "dependencies": {
+    "@supabase/auth-helpers-nextjs": "^0.10.0",
     "svix": "^1.65.0"
   }
 }

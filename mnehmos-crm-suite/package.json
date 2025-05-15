@@ -12,6 +12,7 @@
     "@ckeditor/ckeditor5-engine": "^45.1.0",
     "@clerk/nextjs": "^6.19.3",
     "@supabase/supabase-js": "^2.49.4",
+    "lucide-react": "^0.510.0",
     "next": "15.3.2",
     "pdf-lib": "^1.17.1",
     "react": "^19.0.0",

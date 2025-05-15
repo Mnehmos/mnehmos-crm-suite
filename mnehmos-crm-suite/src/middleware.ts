@@ -3,7 +3,9 @@ import { clerkMiddleware, createRouteMatcher } from '@clerk/nextjs/server';
 const isPublicRoute = createRouteMatcher([
   '/',
   '/sign-in(.*)',
-  '/sign-up(.*)'
+  '/sign-up(.*)',
+  '/api/webhooks/clerk',
+  '/api/webhooks/lemonsqueezy'
 ]);
 
 export default clerkMiddleware((auth, req) => {
@@ -13,6 +15,7 @@ export default clerkMiddleware((auth, req) => {
   }
   // For all other routes, Clerk's default behavior within this middleware
   // when not explicitly made public is to protect them.
+  // Unauthenticated users trying to access protected routes will be redirected to sign-in.
 });
 
 export const config = {
