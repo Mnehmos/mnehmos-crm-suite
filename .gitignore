@@ -1,0 +1,3 @@
+# Sensitive credentials file
+creds.md
+.env.local.template
