@@ -1,6 +1,6 @@
 import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs';
 import { cookies } from 'next/headers';
-import { NextResponse } from 'next/server';
+import { NextResponse, NextRequest } from 'next/server';
 
 // Define valid status options, ensure "Converted" is one of them.
 const VALID_LEAD_STATUSES = ["New", "Contacted", "Qualified", "Proposal Sent", "Negotiation", "Converted", "Lost", "On Hold"];
@@ -18,12 +18,17 @@ interface LeadUpdatePayload {
 }
 
 
+interface PatchContext {
+  params: { id: string };
+}
+
 export async function PATCH(
-  request: Request,
-  { params }: { params: { id: string } }
+  request: NextRequest,
+  context: PatchContext
 ) {
+  const leadId = context.params.id;
   const supabase = createRouteHandlerClient({ cookies });
-  const { id: leadId } = params;
+  // const { id: leadId } = params; // This line is now handled by context.params.id
 
   if (!leadId) {
     return NextResponse.json({ error: 'Lead ID is required' }, { status: 400 });
