@@ -19,10 +19,14 @@ interface LeadUpdatePayload {
 
 
 export async function PATCH(
-  req: NextRequest, // Changed from 'request' to 'req' to match the new signature
-  { params }: { params: { id: string } } // Applied the new signature
+  req: NextRequest,
+  // Speculative type change based on the build error message pattern
+  context: { params: Promise<{ id: string }> }
 ) {
-  const leadId = params.id; // Use params.id directly
+  console.log('PATCH Handler - context:', JSON.stringify(context, null, 2));
+  console.log('PATCH Handler - context.params:', JSON.stringify(context.params, null, 2));
+  const paramsObj = await context.params; // If params is a Promise
+  const leadId = paramsObj.id;
 
   if (!leadId) {
     return NextResponse.json({ error: 'Lead ID is required' }, { status: 400 });
@@ -175,9 +179,13 @@ export async function PATCH(
 // DELETE endpoint for deleting a lead
 export async function DELETE(
   req: NextRequest,
-  { params }: { params: { id: string } }
+  // Speculative type change based on the bizarre build error message
+  context: { params: Promise<{ id: string }> }
 ) {
-  const leadId = params.id;
+  console.log('DELETE Handler - context:', JSON.stringify(context, null, 2));
+  console.log('DELETE Handler - context.params:', JSON.stringify(context.params, null, 2));
+  const paramsObj = await context.params; // If params is a Promise
+  const leadId = paramsObj.id;
 
   if (!leadId) {
     return NextResponse.json({ error: 'Lead ID is required' }, { status: 400 });
