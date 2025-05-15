@@ -1,9 +1,9 @@
-import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs';
-import { cookies } from 'next/headers';
 import { NextResponse, NextRequest } from 'next/server';
+import { getAuth } from '@clerk/nextjs/server';
+import { supabase } from '../../../../lib/supabase';
 
 // Define valid status options, ensure "Converted" is one of them.
-const VALID_LEAD_STATUSES = ["New", "Contacted", "Qualified", "Proposal Sent", "Negotiation", "Converted", "Lost", "On Hold"];
+const VALID_LEAD_STATUSES = ["Leads", "Contacted", "Converted", "Lost"];
 
 interface LeadUpdatePayload {
   status?: string;
@@ -19,12 +19,10 @@ interface LeadUpdatePayload {
 
 
 export async function PATCH(
-  request: NextRequest,
-  context: { params: { id: string } }
+  req: NextRequest, // Changed from 'request' to 'req' to match the new signature
+  { params }: { params: { id: string } } // Applied the new signature
 ) {
-  const leadId = context.params.id;
-  const supabase = createRouteHandlerClient({ cookies });
-  // const { id: leadId } = params; // This line is now handled by context.params.id
+  const leadId = params.id; // Use params.id directly
 
   if (!leadId) {
     return NextResponse.json({ error: 'Lead ID is required' }, { status: 400 });
@@ -32,8 +30,8 @@ export async function PATCH(
 
   let requestBody;
   try {
-    requestBody = await request.json();
-  } catch { // Removed 'error' variable
+    requestBody = await req.json(); // Changed from 'request.json()' to 'req.json()'
+  } catch {
     return NextResponse.json({ error: 'Invalid request body' }, { status: 400 });
   }
 
@@ -45,24 +43,42 @@ export async function PATCH(
     company_name,
     email,
     phone,
-  }: LeadUpdatePayload = requestBody; // Apply type to destructured requestBody
+  }: LeadUpdatePayload = requestBody;
 
   if (status && !VALID_LEAD_STATUSES.includes(status)) {
     return NextResponse.json({ error: `Invalid status. Must be one of: ${VALID_LEAD_STATUSES.join(', ')}` }, { status: 400 });
   }
 
   try {
-    const { data: { user }, error: authError } = await supabase.auth.getUser();
-
-    if (authError || !user) {
+    // Get the Clerk session
+    const { userId } = getAuth(req);
+    
+    if (!userId) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+    
+    // Look up the user in Supabase by clerk_id
+    const { data: userData, error: userError } = await supabase
+      .from('users')
+      .select('id')
+      .eq('clerk_id', userId)
+      .single();
+      
+    if (userError) {
+      console.error('API Leads [id]: Error finding user:', userError.message);
+      return NextResponse.json({ error: 'User not found in database' }, { status: 404 });
+    }
+    
+    if (!userData) {
+      console.error('API Leads [id]: User not found in Supabase.');
+      return NextResponse.json({ error: 'User not found in database' }, { status: 404 });
     }
 
     const { data: existingLead, error: fetchError } = await supabase
       .from('leads')
-      .select('*') // Select all to have full data for client conversion
+      .select('*')
       .eq('id', leadId)
-      .eq('user_id', user.id)
+      .eq('user_id', userData.id)
       .single();
 
     if (fetchError || !existingLead) {
@@ -73,7 +89,7 @@ export async function PATCH(
       return NextResponse.json({ error: 'Error fetching lead data.' }, { status: 500 });
     }
 
-    const updateData: LeadUpdatePayload = {}; // Use the defined interface
+    const updateData: LeadUpdatePayload = {};
     if (status !== undefined) updateData.status = status;
     if (notes !== undefined) updateData.notes = notes;
     if (last_contacted_at !== undefined) updateData.last_contacted_at = last_contacted_at;
@@ -94,7 +110,7 @@ export async function PATCH(
         .from('leads')
         .update(updateData)
         .eq('id', leadId)
-        .eq('user_id', user.id)
+        .eq('user_id', userData.id)
         .select()
         .single();
 
@@ -104,7 +120,7 @@ export async function PATCH(
       }
 
       const clientData = {
-        user_id: user.id,
+        user_id: userData.id,
         lead_id: leadId,
         name: name !== undefined ? name : existingLead.name,
         company_name: company_name !== undefined ? company_name : existingLead.company_name,
@@ -138,7 +154,7 @@ export async function PATCH(
         .from('leads')
         .update(updateData)
         .eq('id', leadId)
-        .eq('user_id', user.id)
+        .eq('user_id', userData.id)
         .select()
         .single();
 
@@ -150,8 +166,80 @@ export async function PATCH(
       return NextResponse.json(updatedLead, { status: 200 });
     }
 
-  } catch (error) { // Keep 'error' here for the final catch-all
+  } catch (error) {
     console.error('Unexpected error in PATCH /api/leads/[id]:', error);
+    return NextResponse.json({ error: 'An unexpected error occurred.' }, { status: 500 });
+  }
+}
+
+// DELETE endpoint for deleting a lead
+export async function DELETE(
+  req: NextRequest,
+  { params }: { params: { id: string } }
+) {
+  const leadId = params.id;
+
+  if (!leadId) {
+    return NextResponse.json({ error: 'Lead ID is required' }, { status: 400 });
+  }
+
+  try {
+    // Get the Clerk session
+    const { userId } = getAuth(req);
+    
+    if (!userId) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+    
+    // Look up the user in Supabase by clerk_id
+    const { data: userData, error: userError } = await supabase
+      .from('users')
+      .select('id')
+      .eq('clerk_id', userId)
+      .single();
+      
+    if (userError) {
+      console.error('API Leads [id] DELETE: Error finding user:', userError.message);
+      return NextResponse.json({ error: 'User not found in database' }, { status: 404 });
+    }
+    
+    if (!userData) {
+      console.error('API Leads [id] DELETE: User not found in Supabase.');
+      return NextResponse.json({ error: 'User not found in database' }, { status: 404 });
+    }
+
+    // Verify the lead exists and belongs to the user
+    const { data: existingLead, error: fetchError } = await supabase
+      .from('leads')
+      .select('id')
+      .eq('id', leadId)
+      .eq('user_id', userData.id)
+      .single();
+
+    if (fetchError || !existingLead) {
+      if (fetchError && fetchError.code === 'PGRST116') {
+        return NextResponse.json({ error: 'Lead not found or you do not have permission to delete it.' }, { status: 404 });
+      }
+      console.error('Error fetching lead:', fetchError);
+      return NextResponse.json({ error: 'Error fetching lead data.' }, { status: 500 });
+    }
+
+    // Delete the lead
+    const { error: deleteError } = await supabase
+      .from('leads')
+      .delete()
+      .eq('id', leadId)
+      .eq('user_id', userData.id);
+
+    if (deleteError) {
+      console.error('Error deleting lead:', deleteError);
+      return NextResponse.json({ error: 'Failed to delete lead.' }, { status: 500 });
+    }
+
+    return NextResponse.json({ message: 'Lead deleted successfully' }, { status: 200 });
+
+  } catch (error) {
+    console.error('Unexpected error in DELETE /api/leads/[id]:', error);
     return NextResponse.json({ error: 'An unexpected error occurred.' }, { status: 500 });
   }
 }
