@@ -1,4 +1,4 @@
-import { clerkMiddleware, createRouteMatcher, getAuth, clerkClient } from '@clerk/nextjs/server';
+import { clerkMiddleware, createRouteMatcher, clerkClient } from '@clerk/nextjs/server'; // Removed getAuth
 import { NextResponse } from 'next/server';
 import { supabase } from './lib/supabase'; // Assuming supabase client is here
 import type { User, EmailAddress } from '@clerk/nextjs/server';
@@ -24,7 +24,7 @@ export default clerkMiddleware(async (auth, req) => {
     return NextResponse.next();
   }
 
-  const { userId, sessionClaims } = auth();
+  const { userId } = await auth(); // Added await here
 
   // If no userId, it means user is not authenticated, Clerk will handle redirect to sign-in
   if (!userId) {
